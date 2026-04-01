@@ -9,6 +9,10 @@ class Owner:
     contact: str
     availability: List[str] = field(default_factory=list)
     preferences: Dict[str, str] = field(default_factory=dict)
+    pets: List["Pet"] = field(default_factory=list)
+
+    def add_pet(self, pet: "Pet"):
+        self.pets.append(pet)
 
     def update_availability(self, availability: List[str]):
         pass
@@ -40,16 +44,24 @@ class Pet:
 
 
 @dataclass
+class TimeWindow:
+    start: datetime
+    end: datetime
+
+
+@dataclass
 class Task:
     id: str
     title: str
     duration: int
     priority: str
-    time_window: Optional[str] = None
+    start: Optional[datetime] = None
+    end: Optional[datetime] = None
     assigned_pet: Optional[Pet] = None
     status: str = "pending"
+    repeat_interval: Optional[str] = None
 
-    def reschedule(self, new_time_window: str):
+    def reschedule(self, start: datetime, end: datetime):
         pass
 
     def update_priority(self, level: str):
@@ -62,10 +74,17 @@ class Task:
         pass
 
 
+@dataclass
+class Schedule:
+    date: datetime
+    tasks: List[Task] = field(default_factory=list)
+    explanation: Optional[str] = None
+
+
 class Scheduler:
-    def __init__(self, owner: Owner, pet: Pet, tasks: Optional[List[Task]] = None, constraints: Optional[Dict] = None):
+    def __init__(self, owner: Owner, pets: Optional[List[Pet]] = None, tasks: Optional[List[Task]] = None, constraints: Optional[Dict] = None):
         self.owner = owner
-        self.pet = pet
+        self.pets = pets or []
         self.tasks = tasks or []
         self.constraints = constraints or {}
 
