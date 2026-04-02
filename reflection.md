@@ -28,6 +28,12 @@ Classes and responsibilities in the initial design:
 - Replaced `Task.time_window: Optional[str]` with explicit `Task.start` and `Task.end` datetimes and added `repeat_interval` for recurring tasks to avoid brittle string parsing and support robust scheduling.
 - Updated `Scheduler` to accept `pets: List[Pet]` (instead of a single `pet`) to support multi-pet households.
 - Added a `Schedule` data class for plan output containing tasks and explanation, separating compute logic from representation.
+- Added `Task.create_next_occurrence()` and `Scheduler.mark_task_complete()` for automatic recurring task propagation.
+- Added `Scheduler.sort_by_time()`, `Scheduler.filter_tasks()`, and `Scheduler.inspect_conflicts()` for smart scheduling features.
+
+**c. Final UML Diagram**
+
+A comprehensive UML diagram has been created (see `uml_diagram.md`) that reflects the final implementation. Key classes, attributes, and methods are documented, showing how tasks, pets, owners, and the scheduler interact. The diagram confirms that the final design successfully supports multi-pet scheduling, recurring tasks, and conflict detection.
 
 ---
 
