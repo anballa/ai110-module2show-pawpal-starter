@@ -22,6 +22,15 @@ Your final app should:
 - Display the plan clearly (and ideally explain the reasoning)
 - Include tests for the most important scheduling behaviors
 
+## Smarter Scheduling
+
+Enhancements implemented:
+
+- Sorting tasks by time and priority using `Scheduler.sort_by_time()`
+- Filtering tasks by pet name and complete status using `Scheduler.filter_tasks()`
+- Recurring task support with `Task.repeat_interval` (`daily`, `weekly`) and auto-recreation via `Scheduler.mark_task_complete()`
+- Lightweight conflict detection with warnings via `Scheduler.inspect_conflicts()`
+
 ## Getting started
 
 ### Setup

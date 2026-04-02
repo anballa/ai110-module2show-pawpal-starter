@@ -43,6 +43,9 @@ Classes and responsibilities in the initial design:
 - Describe one tradeoff your scheduler makes.
 - Why is that tradeoff reasonable for this scenario?
 
+- Current conflict detection scans tasks sequentially by `start` and flags overlaps only when `next.start < current.end` (a lightweight window-based check). It does not perform complete interval graph optimization or deep constraint solving, which is a deliberate tradeoff for simplicity and maintainability.
+- This tradeoff is reasonable because PawPal is intended as a small personal schedule assistant for pet owners; returning warnings rather than raising errors keeps user experience smooth while allowing the owner to quickly resolve timing overlap issues.
+
 ---
 
 ## 3. AI Collaboration

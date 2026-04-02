@@ -25,8 +25,41 @@ class Task:
         self.priority = level
 
     def mark_complete(self):
-        """Mark this task as complete."""
+        """Mark this task as complete and return a next occurrence if repeating."""
         self.completed = True
+        return self.create_next_occurrence()
+
+    def create_next_occurrence(self):
+        """Return a newly scheduled Task for repeat_interval daily/weekly."""
+        if not self.repeat_interval or not self.start:
+            return None
+
+        if self.repeat_interval == "daily":
+            delta = timedelta(days=1)
+        elif self.repeat_interval == "weekly":
+            delta = timedelta(weeks=1)
+        else:
+            return None
+
+        new_start = self.start + delta
+        new_end = self.end + delta if self.end else new_start + timedelta(minutes=self.duration)
+
+        # Keep ID unique by appending new date
+        new_id = f"{self.id}_{new_start.date()}"
+
+        next_task = Task(
+            id=new_id,
+            title=self.title,
+            duration=self.duration,
+            priority=self.priority,
+            start=new_start,
+            end=new_end,
+            assigned_pet=self.assigned_pet,
+            completed=False,
+            repeat_interval=self.repeat_interval,
+        )
+
+        return next_task
 
     def is_due(self, date: datetime) -> bool:
         """Return true if task is due on the given date."""
@@ -134,12 +167,49 @@ class Scheduler:
         """Get tasks that are not completed."""
         return [t for t in self.all_tasks() if not t.completed]
 
+    def mark_task_complete(self, task_id: str) -> Optional[Task]:
+        """Mark a task as complete; schedule repeat task if repeating."""
+        for task in self.all_tasks():
+            if task.id == task_id:
+                next_task = task.mark_complete()
+                if next_task and task.assigned_pet:
+                    task.assigned_pet.add_task(next_task)
+                return next_task
+        return None
+
+    def sort_by_time(self, tasks: Optional[List[Task]] = None) -> List[Task]:
+        """Sort tasks by start time, with non-start tasks at the end.
+
+        Inline Chat: How can we use Python's sorted() with key=lambda to sort HH:MM strings?
+        Ans: sorted(time_strings, key=lambda x: datetime.strptime(x, '%H:%M'))
+        """
+        tasks = tasks if tasks is not None else self.all_tasks()
+
+        def parse_time_key(task):
+            if task.start:
+                return task.start
+            # unspecified time tasks go last
+            return datetime.max
+
+        return sorted(tasks, key=parse_time_key)
+
+    def filter_tasks(self, pet_name: Optional[str] = None, completed: Optional[bool] = None) -> List[Task]:
+        """Filter tasks by pet name and/or completion status."""
+        tasks = self.all_tasks()
+        if pet_name is not None:
+            tasks = [t for t in tasks if t.assigned_pet and t.assigned_pet.name.lower() == pet_name.lower()]
+        if completed is not None:
+            tasks = [t for t in tasks if t.completed == completed]
+        return tasks
+
     def generate_daily_plan(self, date: datetime) -> Schedule:
         """Create a schedule for a particular date."""
         tasks = [t for t in self.pending_tasks() if t.is_due(date)]
-        sorted_tasks = sorted(tasks, key=lambda t: (-t.priority, t.start or datetime.max))
-        plan = Schedule(date=date, tasks=sorted_tasks)
-        plan.explanation = f"Generated {len(sorted_tasks)} tasks for {date.date()} sorted by priority and time."
+        # sort by time while keeping high-priority first if same time
+        tasks = sorted(tasks, key=lambda t: (t.start or datetime.max, -t.priority))
+
+        plan = Schedule(date=date, tasks=tasks)
+        plan.explanation = f"Generated {len(tasks)} tasks for {date.date()} sorted by time and priority."
         return plan
 
     def apply_constraints(self):
@@ -160,13 +230,23 @@ class Scheduler:
         return plan
 
     def inspect_conflicts(self) -> List[str]:
-        """Find conflicting tasks that overlap in time."""
-        conflicts = []
+        """Find conflicting tasks that overlap in time and return warnings."""
+        warnings = []
         tasks = [t for t in self.all_tasks() if t.start and t.end]
         tasks_sorted = sorted(tasks, key=lambda x: x.start)
-        for i in range(len(tasks_sorted) - 1):
-            current = tasks_sorted[i]
-            nxt = tasks_sorted[i + 1]
-            if current.end and nxt.start and current.end > nxt.start:
-                conflicts.append(f"{current.title} overlaps with {nxt.title}")
-        return conflicts
+
+        # lightweight O(n^2) conflict scan for overlaps in same day
+        for i, current in enumerate(tasks_sorted):
+            for nxt in tasks_sorted[i + 1:]:
+                if nxt.start >= current.end:
+                    break
+                # any overlap
+                if nxt.start < current.end:
+                    pet_desc_curr = current.assigned_pet.name if current.assigned_pet else 'Unknown'
+                    pet_desc_next = nxt.assigned_pet.name if nxt.assigned_pet else 'Unknown'
+                    warnings.append(
+                        f"WARNING: '{current.title}' ({pet_desc_curr}) [{current.start.strftime('%H:%M')}-{current.end.strftime('%H:%M')}] "
+                        f"overlaps with '{nxt.title}' ({pet_desc_next}) [{nxt.start.strftime('%H:%M')}-{nxt.end.strftime('%H:%M')}]"
+                    )
+        return warnings
+
